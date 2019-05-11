@@ -1,0 +1,113 @@
+#include <stdio.h>
+#include <math.h>
+#include <MLV/MLV_all.h>
+
+#define WINDOW_WIDTH 600
+#define WINDOW_HEIGHT 600
+#define WIDTH_OF_REGION 2e6
+
+#define G  6.674e-11 /* the gravitational constant */
+#define dt 0.1       /* time step */
+#define C 2e4
+
+int N = 0;
+typedef struct _body {
+    double px;   /* x position */
+    double py;   /* y position */
+    double vx;   /* x velocity */
+    double vy;   /* y velocity */
+    double fx;   /* x force */
+    double fy;   /* y force */
+    double mass; /* mass */
+} body;
+
+void draw_body(body *B) {
+
+    int window_x = WINDOW_WIDTH*(0.5+0.5*(B->px/WIDTH_OF_REGION));
+    int window_y = WINDOW_HEIGHT*(0.5+0.5*(B->py/WIDTH_OF_REGION));
+
+    MLV_draw_filled_circle(window_x, window_y, 1, MLV_COLOR_WHITE);
+
+}
+
+
+body* create_list(char* c){
+  FILE *f = fopen(c,"r");
+  if(f==NULL){
+    printf("Erreur dans l'ouverture du fichier ");
+    exit(0);
+    return NULL;
+  }
+  fscanf(f,"%d",&N);
+  body* lst = (body*)malloc((N+1)*sizeof(body));
+  double wdt;
+  fscanf(f,"%le",&wdt);
+  int i=0;
+  while(fscanf(f,"%le %le %le %le %le",&lst[i].px,&lst[i].py,&lst[i].vx, &lst[i].vy, &lst[i].mass) == 5 && i <=N){
+    i++;
+  }
+  return lst;
+}
+
+void print_lst(body* b){
+  int i;
+  for(i=0;i<=N;i++){
+    printf("%d = %le %le \n", i,b[i].px, b[i].py);
+  }
+}
+
+int main(int argc, char* argv[]) {
+    body* lst = create_list(argv[1]);
+    /* Open the window */
+    MLV_create_window("Window", "Window", WINDOW_WIDTH, WINDOW_HEIGHT);
+
+    /* Initialise two bodies
+    body B1 = {.px = 1e4, .py = -1e4, .vx = 2.5e3, .vy = 0.0, .mass = 4e21};
+    body B2 = {.px = -1e4, .py = 1e4, .vx = -2.5e3, .vy = 0.0, .mass = 4e21};
+*/
+    print_lst(lst);
+    double t = 0.0;
+    while (1) {
+        double dx, dy, dist;
+        int i=0;
+        int j=0;
+
+        for(i=0;i<N;i++){
+          body* B1 = &lst[i];
+          B1->fx = 0.0;
+          B1->fy = 0.0;
+          for(j=0;j<N;j++){
+            if(i!=j){
+              body* B2 = &lst[j];
+              dx = B2->px-B1->px;
+              dy = B2->py-B1->py;
+              dist = sqrt(dx*dx+dy*dy); /* distance between B1 and B2 */
+              B1->fx += (G*B1->mass*B2->mass/(dist*dist+C*C))*(dx/dist);
+              B1->fy += (G*B1->mass*B2->mass/(dist*dist+C*C))*(dy/dist);
+            }
+          }
+        }
+
+        for(i=0;i<N;i++){
+          body* B1 = &lst[i];
+          B1->vx += dt*B1->fx/B1->mass;
+          B1->vy += dt*B1->fy/B1->mass;
+          /* compute B1's new position */
+          B1->px += dt*B1->vx;
+          B1->py += dt*B1->vy;
+        }
+
+        MLV_draw_filled_rectangle(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, MLV_COLOR_BLACK);
+        for (i = 0; i <= N; i++) {
+            body* B1 = &lst[i];
+
+            draw_body(B1);
+
+
+        }
+
+        t += dt;
+        MLV_wait_milliseconds(20);
+        MLV_update_window();
+    }
+}
